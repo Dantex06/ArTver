@@ -6,8 +6,3 @@ export async function getItems() {
   const res = await axios.get(`${BASE}/api/items`);
   return res.data;
 }
-
-export async function createItem(payload) {
-  const res = await axios.post(`${BASE}/api/items`, payload);
-  return res.data;
-}
