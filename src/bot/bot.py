@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
-
+import httpx
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
 
@@ -26,6 +26,23 @@ from backend.app.models import Item
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
+ADMIN_ID = 1103808453
+
+@dp.message(Command("update"))
+async def update_cmd(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return await message.answer("У тебя нет прав.")
+
+    await message.answer("Обновляю данные, пожалуйста подожди...")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post("http://localhost:8000/api/actualize")
+
+    if resp.status_code == 200:
+        data = resp.json()
+        await message.answer(f"Готово!\nДобавлено новых новостей: {data['added']}")
+    else:
+        await message.answer("Ошибка при обновлении данных!")
 
 @dp.message(Command(commands=['start']))
 async def cmd_start(message: types.Message):
@@ -34,7 +51,7 @@ async def cmd_start(message: types.Message):
             [
                 KeyboardButton(
                     text="Открыть приложение",
-                    web_app=WebAppInfo(url="https://yourdomain.com")
+                    web_app=WebAppInfo(url="https://rogachevegor.ru/")
                 )
             ]
         ],

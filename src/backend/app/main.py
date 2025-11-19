@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from .database import init_db
 from .api import router as api_router
+from .api_news import router_news
+from .api_actualize import router_actualize
 import uvicorn
 
 
@@ -8,7 +10,8 @@ app = FastAPI(title='Starter FastAPI + SQLite')
 
 
 app.include_router(api_router)
-
+app.include_router(router_news)
+app.include_router(router_actualize)
 
 @app.on_event('startup')
 def on_startup():
