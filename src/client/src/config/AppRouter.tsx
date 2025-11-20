@@ -11,9 +11,9 @@ import SettingsPage from "../pages/SettingsPage";
 export default function AppRouter() {
   const [loading, setLoading] = useState(true);
   const [userExists, setUserExists] = useState<boolean>(false);
+  const [userId, setUserId] = useState<number | null>(null);
 
- const getTelegramUserId = (): number | null => {
-    // Основной способ - через Telegram Web App
+  const getTelegramUserId = (): number | null => {
     const tg = (window as any).Telegram?.WebApp;
     
     if (tg?.initDataUnsafe?.user?.id) {
@@ -21,7 +21,6 @@ export default function AppRouter() {
       return tg.initDataUnsafe.user.id;
     }
     
-    // Альтернативный способ - парсим initData
     if (tg?.initData) {
       try {
         const params = new URLSearchParams(tg.initData);
@@ -36,26 +35,20 @@ export default function AppRouter() {
       }
     }
     
-    // Резервный способ - из URL параметров
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tgWebAppData = urlParams.get('tgWebAppData');
-      if (tgWebAppData) {
-        const decoded = decodeURIComponent(tgWebAppData);
-        const dataParams = new URLSearchParams(decoded);
-        const userStr = dataParams.get('user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          console.log("✅ User ID from URL params:", user.id);
-          return user.id;
-        }
-      }
-    } catch (error) {
-      console.error('Error parsing URL params:', error);
-    }
-    
     console.warn("❌ No user ID found");
     return null;
+  };
+
+  // Функция для проверки пользователя
+  const checkUserExists = async (userId: number) => {
+    try {
+      const user = await getUserByTgId(userId);
+      setUserExists(user.exists);
+      return user.exists;
+    } catch (error) {
+      console.error("Error checking user:", error);
+      return false;
+    }
   };
 
   useEffect(() => {
@@ -65,25 +58,22 @@ export default function AppRouter() {
         
         if (tg) {
           tg.ready();
-          tg.expand(); // Раскрываем на весь экран
+          tg.expand();
           
-          const userId = getTelegramUserId();
+          const currentUserId = getTelegramUserId();
+          setUserId(currentUserId);
           
-          if (userId) {
-            const user = await getUserByTgId(userId);
-            setUserExists(user.exists);
+          if (currentUserId) {
+            await checkUserExists(currentUserId);
             
-            // Сохраняем данные пользователя
             if (tg.initDataUnsafe?.user) {
               localStorage.setItem('tg_user_data', JSON.stringify(tg.initDataUnsafe.user));
             }
           } else {
             console.warn("No user ID available");
-            // Для разработки - используем тестовый ID
           }
         } else {
           console.warn("Telegram WebApp not available");
-          // Режим разработки
         }
       } catch (error) {
         console.error("Init error:", error);
@@ -95,18 +85,25 @@ export default function AppRouter() {
     init();
   }, []);
 
+  // Функция для обновления состояния после регистрации
+  const handleUserRegistered = async () => {
+    if (userId) {
+      const exists = await checkUserExists(userId);
+      if (exists) {
+        console.log("✅ User successfully registered, redirecting to home");
+      }
+    }
+  };
+
   if (loading) return <Loading />;
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* Главный маршрут - редирект в зависимости от состояния пользователя */}
         <Route
           path="/"
           element={
-            loading ? (
-              <Loading />
-            ) : userExists ? (
+            userExists ? (
               <Navigate to="/home" replace />
             ) : (
               <Navigate to="/onboarding" replace />
@@ -114,23 +111,31 @@ export default function AppRouter() {
           }
         />
 
-        {/* Onboarding - только для НОВЫХ пользователей */}
         <Route
           path="/onboarding"
-          element={userExists ? <Navigate to="/home" replace /> : <StartPage />}
+          element={
+            userExists ? (
+              <Navigate to="/home" replace />
+            ) : (
+              <StartPage onUserRegistered={handleUserRegistered} />
+            )
+          }
         />
 
-        {/* Home - только для СУЩЕСТВУЮЩИХ пользователей */}
         <Route
           path="/home"
           element={
-            !userExists ? <Navigate to="/onboarding" replace /> : <HomePage />
+            !userExists ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <HomePage />
+            )
           }
         />
+        
         <Route path="/category/:category" element={<CategoryNewsPage />} />
         <Route path="/news/:id" element={<NewsDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

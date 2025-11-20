@@ -10,50 +10,28 @@ const categories = [
   { type: "tver", label: "Тверь" },
 ];
 
-export default function StartPage() {
+interface StartPageProps {
+  onUserRegistered?: () => void;
+}
+
+export default function StartPage({ onUserRegistered }: StartPageProps) {
   const navigate = useNavigate();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [userId, setUserId] = useState<number | null>(null);
-  const [userName, setUserName] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
- const getTelegramUser = () => {
-    const tg = (window as any).Telegram?.WebApp;
-    
-    if (tg?.initDataUnsafe?.user) {
-      const user = tg.initDataUnsafe.user;
-      console.log("✅ Telegram User:", user);
-      return user;
-    }
-    
-    // Проверяем localStorage на случай если данные уже были сохранены
-    const savedUser = localStorage.getItem('tg_user_data');
-    if (savedUser) {
-      try {
-        return JSON.parse(savedUser);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-      }
-    }
-    
-    return null;
-  };
-
+  // Получаем ID пользователя
   useEffect(() => {
-    const user = getTelegramUser();
-    
-    if (user?.id) {
-      setUserId(user.id);
-      setUserName(user.first_name || user.username || "Пользователь");
-      console.log("✅ User ID set:", user.id);
-    } else {
-      console.warn("❌ No user data available");
-    }
-
-    // Инициализируем Telegram Web App
     const tg = (window as any).Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
+    if (tg?.initDataUnsafe?.user?.id) {
+      setCurrentUserId(tg.initDataUnsafe.user.id);
+    } else {
+      // Для тестирования - используем ID из URL или localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const testId = urlParams.get('test_id') || localStorage.getItem('test_user_id');
+      if (testId) {
+        setCurrentUserId(parseInt(testId));
+      }
     }
   }, []);
 
@@ -67,45 +45,55 @@ export default function StartPage() {
     });
   };
 
-    console.log('initData:', WebApp.initData);
-    console.log('initDataUnsafe:', WebApp.initDataUnsafe);
-    console.log('URL:', window.location.href);
-
   const onSubmit = async () => {
-    if (selectedCategories.length === 0 || !userId) {
-      console.error("No categories selected or user ID missing");
-      return;
-    }
+    if (selectedCategories.length === 0 || !currentUserId) return;
+    
+    setIsSubmitting(true);
 
     try {
-      console.log("Submitting with user ID:", userId);
+      console.log("🚀 Starting registration for user:", currentUserId);
 
-      const response = await fetch("/api/user/save", {
+      // Сразу сохраняем пользователя (не проверяем существование)
+      const saveResponse = await fetch("/api/user/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tg_id: userId,
+          tg_id: currentUserId,
           categories: selectedCategories,
-          full_name: userName,
+          full_name: WebApp.initDataUnsafe?.user?.first_name || "Пользователь",
           email: null,
         }),
       });
 
-      if (response.ok) {
-        const tg = (window as any).Telegram?.WebApp;
-        if (tg?.HapticFeedback) {
-          tg.HapticFeedback.notificationOccurred("success");
+      const saveResult = await saveResponse.json();
+      console.log("💾 Save response:", saveResult);
+
+      if (saveResponse.ok) {
+        // Виброотклик
+        WebApp.HapticFeedback.notificationOccurred("success");
+        
+        // Уведомляем AppRouter о успешной регистрации
+        if (onUserRegistered) {
+          await onUserRegistered();
         }
-        navigate("/home");
+        
+        // Ждем немного чтобы состояние обновилось
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log("✅ Registration successful, navigating to home");
+        
+        // Принудительный переход на home
+        navigate("/home", { replace: true });
       } else {
-        throw new Error("Failed to save user");
+        throw new Error(saveResult.error || "Failed to save user");
       }
+
     } catch (error) {
-      console.error("Error saving user:", error);
-      const tg = (window as any).Telegram?.WebApp;
-      if (tg?.HapticFeedback) {
-        tg.HapticFeedback.notificationOccurred("error");
-      }
+      console.error("❌ Registration error:", error);
+      WebApp.HapticFeedback.notificationOccurred("error");
+      alert("Ошибка при регистрации. Попробуйте еще раз.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -124,13 +112,11 @@ export default function StartPage() {
         <p className="text-[#888888] text-center text-sm">
           Выберите интересующие категории
         </p>
-        {/* Отладочная информация */}
-        <div className="text-center mt-2">
-          <p className="text-[#F15031] text-xs">
-            User ID: {userId || "не определен"}
-            {!WebApp.initDataUnsafe?.user?.id && " (режим разработки)"}
+        {currentUserId && (
+          <p className="text-[#71C810] text-center text-xs mt-1">
+            User ID: {currentUserId}
           </p>
-        </div>
+        )}
       </div>
 
       {/* Categories */}
@@ -176,27 +162,27 @@ export default function StartPage() {
       <div className="pt-6 pb-4">
         <button
           onClick={onSubmit}
-          disabled={selectedCategories.length === 0 || !userId}
+          disabled={selectedCategories.length === 0 || !currentUserId || isSubmitting}
           className={`
             w-full py-4 rounded-xl text-base font-semibold transition-all duration-200
             ${
-              selectedCategories.length > 0 && userId
+              selectedCategories.length > 0 && currentUserId && !isSubmitting
                 ? "bg-[#F15031] text-white active:bg-[#D14021] cursor-pointer"
                 : "bg-[#222222] text-[#888888] cursor-not-allowed"
             }
           `}
         >
-          Войти {selectedCategories.length > 0 && `(${selectedCategories.length})`}
+          {isSubmitting ? "Регистрация..." : "Войти"} 
+          {selectedCategories.length > 0 && !isSubmitting && ` (${selectedCategories.length})`}
         </button>
         
-        {/* Счетчик выбранных категорий */}
         <div className="text-center mt-2">
           <p className="text-[#888888] text-sm">
             Выбрано: {selectedCategories.length} из {categories.length}
           </p>
-          {!userId && (
+          {isSubmitting && (
             <p className="text-[#F15031] text-xs mt-1">
-              Ошибка: ID пользователя не определен
+              Регистрируем...
             </p>
           )}
         </div>
