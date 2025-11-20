@@ -47,8 +47,8 @@ export default function StartPage() {
     });
   };
 
-    console.log('initData:', Telegram.WebApp.initData);
-    console.log('initDataUnsafe:', Telegram.WebApp.initDataUnsafe);
+    console.log('initData:', WebApp.initData);
+    console.log('initDataUnsafe:', WebApp.initDataUnsafe);
     console.log('URL:', window.location.href);
 
   const onSubmit = async () => {
