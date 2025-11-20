@@ -1,5 +1,5 @@
 export async function getUserByTgId(tg_id: number) {
-  const res = await fetch(`http://localhost:8000/api/user/info?tg_id=${tg_id}`);
+  const res = await fetch(`/api/user/info?tg_id=${tg_id}`);
   if (!res.ok) return null;
   return res.json();
 }
@@ -10,7 +10,7 @@ export async function saveUser(payload: {
   full_name?: string;
   email?: string;
 }) {
-  const res = await fetch(`http://localhost:8000/api/user/save`, {
+  const res = await fetch(`/api/user/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -20,7 +20,7 @@ export async function saveUser(payload: {
 }
 
 export const updateUser = async (tgId: number, data: any) => {
-  const response = await fetch(`http://localhost:8000/api/user/update?tg_id=${tgId}`, {
+  const response = await fetch(`/api/user/update?tg_id=${tgId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -29,7 +29,7 @@ export const updateUser = async (tgId: number, data: any) => {
 };
 
 export const sendSupportRequest = async (data: any) => {
-  const response = await fetch('http://localhost:8000/api/user/support', {
+  const response = await fetch('/api/user/support', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)

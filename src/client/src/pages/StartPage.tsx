@@ -32,7 +32,7 @@ export default function StartPage() {
     try {
       // Проверяем существование пользователя
       const userCheck = await fetch(
-        `http://localhost:8000/api/user/info?tg_id=${user?.id}`
+        `/api/user/info?tg_id=${user?.id}`
       );
       const userData = await userCheck.json();
 
@@ -42,7 +42,7 @@ export default function StartPage() {
       }
 
       // Сохраняем нового пользователя с массивом категорий
-      await fetch("http://localhost:8000/api/user/save", {
+      await fetch("/api/user/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

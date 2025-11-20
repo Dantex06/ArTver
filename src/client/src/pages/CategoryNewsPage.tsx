@@ -27,7 +27,7 @@ export default function CategoryNewsPage() {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/news?type=${category}`);
+        const response = await fetch(`/api/news?type=${category}`);
         const data: NewsResponse = await response.json();
         setNewsData(data);
       } catch (error) {
