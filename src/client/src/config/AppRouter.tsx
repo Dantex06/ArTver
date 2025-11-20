@@ -11,7 +11,6 @@ import SettingsPage from "../pages/SettingsPage";
 export default function AppRouter() {
   const [loading, setLoading] = useState(true);
   const [userExists, setUserExists] = useState<boolean>(false);
-  const [isInitialized, setIsInitialized] = useState(false);
 
 useEffect(() => {
   const init = async () => {
@@ -59,7 +58,7 @@ useEffect(() => {
         <Route
           path="/"
           element={
-            !isInitialized ? (
+            loading ? (
               <Loading />
             ) : userExists ? (
               <Navigate to="/home" replace />
