@@ -30,11 +30,7 @@ export default function StartPage() {
       setUserName(user.first_name || "Пользователь");
       console.log("Telegram user ID:", user.id);
     } else {
-      // Режим разработки - используем тестовый ID
-      const testUserId = 123456789; // Тестовый ID для разработки
-      setUserId(testUserId);
-      setUserName("Тестовый пользователь");
-      console.log("Development mode, using test ID:", testUserId);
+      console.log("Error");
     }
 
     // Инициализируем Telegram Web App

@@ -28,15 +28,9 @@ useEffect(() => {
           setUserExists(user.exists);
         } else {
           console.warn("No Telegram User ID found");
-          // Для разработки используем тестовый ID
-          const testUser = await getUserByTgId(123456789);
-          setUserExists(testUser.exists);
         }
       } else {
         console.warn("Telegram WebApp not available - running in browser");
-        // Режим браузера - используем тестовый ID
-        const testUser = await getUserByTgId(123456789);
-        setUserExists(testUser.exists);
       }
     } catch (e) {
       console.error("Error in AppRouter init:", e);
