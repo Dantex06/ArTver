@@ -1,19 +1,21 @@
-import sys
+import sys 
 from pathlib import Path
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import httpx
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
-
-import asyncio
-from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
+from aiogram import Bot, Dispatcher, types
 from sqlmodel import Session, select
 import os
 from dotenv import load_dotenv
 from sqlmodel import create_engine
+import asyncio
+from datetime import datetime
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
 
 load_dotenv()
+
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///../backend/app.db')
 
@@ -22,7 +24,7 @@ if TELEGRAM_TOKEN is None:
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
-from backend.app.models import Item
+from backend.app.models import Item, SupportRequest  # Добавим новую модель
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
@@ -32,17 +34,38 @@ ADMIN_ID = 1103808453
 async def update_cmd(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return await message.answer("У тебя нет прав.")
-
+    
     await message.answer("Обновляю данные, пожалуйста подожди...")
-
     async with httpx.AsyncClient() as client:
         resp = await client.post("http://localhost:8000/api/actualize")
+        if resp.status_code == 200:
+            data = resp.json()
+            await message.answer(f"Готово!\nДобавлено новых новостей: {data['added']}")
+        else:
+            await message.answer("Ошибка при обновлении данных!")
 
-    if resp.status_code == 200:
-        data = resp.json()
-        await message.answer(f"Готово!\nДобавлено новых новостей: {data['added']}")
-    else:
-        await message.answer("Ошибка при обновлении данных!")
+@dp.message(Command("help"))
+async def help_cmd(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return await message.answer("У тебя нет прав.")
+    
+    with Session(engine) as session:
+        statement = select(SupportRequest).order_by(SupportRequest.created_at.desc())
+        requests = session.exec(statement).all()
+        
+        if not requests:
+            await message.answer("Нет обращений в поддержку")
+            return
+        
+        for req in requests[:10]:  # Показываем последние 10
+            text = f"""
+📨 Обращение в поддержку
+👤 Пользователь: {req.user_name or 'Не указано'}
+📧 Email: {req.user_email or 'Не указан'}
+💬 Текст: {req.message}
+📅 Дата: {req.created_at.strftime('%d.%m.%Y %H:%M')}
+            """
+            await message.answer(text)
 
 @dp.message(Command(commands=['start']))
 async def cmd_start(message: types.Message):
@@ -57,7 +80,6 @@ async def cmd_start(message: types.Message):
         ],
         resize_keyboard=True
     )
-
     await message.answer(
         "Добро пожаловать! Жми кнопку ниже:",
         reply_markup=kb
