@@ -16,25 +16,45 @@ export default function StartPage() {
   const [userId, setUserId] = useState<number | null>(null);
   const [userName, setUserName] = useState<string>("");
 
-  // Инициализация Telegram Web App и получение данных пользователя
-  useEffect(() => {
-    console.log("Telegram WebApp:", WebApp);
-    console.log("initDataUnsafe:", WebApp.initDataUnsafe);
-    console.log("User data:", WebApp.initDataUnsafe?.user);
+ const getTelegramUser = () => {
+    const tg = (window as any).Telegram?.WebApp;
+    
+    if (tg?.initDataUnsafe?.user) {
+      const user = tg.initDataUnsafe.user;
+      console.log("✅ Telegram User:", user);
+      return user;
+    }
+    
+    // Проверяем localStorage на случай если данные уже были сохранены
+    const savedUser = localStorage.getItem('tg_user_data');
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser);
+      } catch (error) {
+        console.error('Error parsing saved user data:', error);
+      }
+    }
+    
+    return null;
+  };
 
-    const user = WebApp.initDataUnsafe?.user;
+  useEffect(() => {
+    const user = getTelegramUser();
     
     if (user?.id) {
-      // Режим Telegram Web App
       setUserId(user.id);
-      setUserName(user.first_name || "Пользователь");
-      console.log("Telegram user ID:", user.id);
+      setUserName(user.first_name || user.username || "Пользователь");
+      console.log("✅ User ID set:", user.id);
     } else {
-      console.log("Error");
+      console.warn("❌ No user data available");
     }
 
     // Инициализируем Telegram Web App
-    WebApp.ready();
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
   }, []);
 
   const toggleCategory = (categoryType: string) => {
@@ -52,33 +72,15 @@ export default function StartPage() {
     console.log('URL:', window.location.href);
 
   const onSubmit = async () => {
-    if (selectedCategories.length === 0) return;
-    
-    if (!userId) {
-      console.error("User ID is not available");
-      WebApp.HapticFeedback.notificationOccurred("error");
+    if (selectedCategories.length === 0 || !userId) {
+      console.error("No categories selected or user ID missing");
       return;
     }
 
     try {
-      console.log("Sending request with user ID:", userId);
+      console.log("Submitting with user ID:", userId);
 
-      // Проверяем существование пользователя
-      const userCheck = await fetch(
-        `/api/user/info?tg_id=${userId}`
-      );
-      const userData = await userCheck.json();
-      console.log("User check response:", userData);
-
-      if (userData.exists) {
-        console.log("User exists, redirecting to home");
-        navigate("/home");
-        return;
-      }
-
-      // Сохраняем нового пользователя
-      console.log("Creating new user with categories:", selectedCategories);
-      const saveResponse = await fetch("/api/user/save", {
+      const response = await fetch("/api/user/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,20 +91,21 @@ export default function StartPage() {
         }),
       });
 
-      const saveResult = await saveResponse.json();
-      console.log("Save response:", saveResult);
-
-      if (saveResponse.ok) {
-        WebApp.HapticFeedback.notificationOccurred("success");
-        console.log("User created successfully, redirecting to home");
+      if (response.ok) {
+        const tg = (window as any).Telegram?.WebApp;
+        if (tg?.HapticFeedback) {
+          tg.HapticFeedback.notificationOccurred("success");
+        }
         navigate("/home");
       } else {
-        throw new Error(saveResult.error || "Failed to save user");
+        throw new Error("Failed to save user");
       }
-
     } catch (error) {
-      console.error("Error:", error);
-      WebApp.HapticFeedback.notificationOccurred("error");
+      console.error("Error saving user:", error);
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg?.HapticFeedback) {
+        tg.HapticFeedback.notificationOccurred("error");
+      }
     }
   };
 
