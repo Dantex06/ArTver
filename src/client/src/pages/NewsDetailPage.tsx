@@ -1,5 +1,5 @@
 // NewsDetailPage.tsx - НОВАЯ СТРАНИЦА ДЕТАЛЬНОГО ПРОСМОТРА
-import { useParams, useNavigate, useLocation } from "react-router";
+import {  useNavigate, useLocation } from "react-router";
 import Logo from "../assets/logo.png";
 
 interface NewsItem {
@@ -12,7 +12,6 @@ interface NewsItem {
 }
 
 export default function NewsDetailPage() {
-  const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const newsItem = location.state?.newsItem as NewsItem;
