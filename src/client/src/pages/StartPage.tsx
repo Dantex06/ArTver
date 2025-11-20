@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import WebApp from "@twa-dev/sdk";
 import { useNavigate } from "react-router";
 import Logo from "../assets/logo.png";
@@ -13,6 +13,33 @@ const categories = [
 export default function StartPage() {
   const navigate = useNavigate();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [userName, setUserName] = useState<string>("");
+
+  // Инициализация Telegram Web App и получение данных пользователя
+  useEffect(() => {
+    console.log("Telegram WebApp:", WebApp);
+    console.log("initDataUnsafe:", WebApp.initDataUnsafe);
+    console.log("User data:", WebApp.initDataUnsafe?.user);
+
+    const user = WebApp.initDataUnsafe?.user;
+    
+    if (user?.id) {
+      // Режим Telegram Web App
+      setUserId(user.id);
+      setUserName(user.first_name || "Пользователь");
+      console.log("Telegram user ID:", user.id);
+    } else {
+      // Режим разработки - используем тестовый ID
+      const testUserId = 123456789; // Тестовый ID для разработки
+      setUserId(testUserId);
+      setUserName("Тестовый пользователь");
+      console.log("Development mode, using test ID:", testUserId);
+    }
+
+    // Инициализируем Telegram Web App
+    WebApp.ready();
+  }, []);
 
   const toggleCategory = (categoryType: string) => {
     setSelectedCategories(prev => {
@@ -26,38 +53,56 @@ export default function StartPage() {
 
   const onSubmit = async () => {
     if (selectedCategories.length === 0) return;
-
-    const user = WebApp.initDataUnsafe.user;
+    
+    if (!userId) {
+      console.error("User ID is not available");
+      WebApp.HapticFeedback.notificationOccurred("error");
+      return;
+    }
 
     try {
+      console.log("Sending request with user ID:", userId);
+
       // Проверяем существование пользователя
       const userCheck = await fetch(
-        `/api/user/info?tg_id=${user?.id}`
+        `/api/user/info?tg_id=${userId}`
       );
       const userData = await userCheck.json();
+      console.log("User check response:", userData);
 
       if (userData.exists) {
+        console.log("User exists, redirecting to home");
         navigate("/home");
         return;
       }
 
-      // Сохраняем нового пользователя с массивом категорий
-      await fetch("/api/user/save", {
+      // Сохраняем нового пользователя
+      console.log("Creating new user with categories:", selectedCategories);
+      const saveResponse = await fetch("/api/user/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tg_id: user?.id,
-          categories: selectedCategories, // теперь передаем массив
-          full_name: user?.first_name,
+          tg_id: userId,
+          categories: selectedCategories,
+          full_name: userName,
           email: null,
         }),
       });
 
-      WebApp.HapticFeedback.notificationOccurred("success");
-      navigate("/home");
+      const saveResult = await saveResponse.json();
+      console.log("Save response:", saveResult);
+
+      if (saveResponse.ok) {
+        WebApp.HapticFeedback.notificationOccurred("success");
+        console.log("User created successfully, redirecting to home");
+        navigate("/home");
+      } else {
+        throw new Error(saveResult.error || "Failed to save user");
+      }
+
     } catch (error) {
-      WebApp.HapticFeedback.notificationOccurred("error");
       console.error("Error:", error);
+      WebApp.HapticFeedback.notificationOccurred("error");
     }
   };
 
@@ -76,6 +121,13 @@ export default function StartPage() {
         <p className="text-[#888888] text-center text-sm">
           Выберите интересующие категории
         </p>
+        {/* Отладочная информация */}
+        <div className="text-center mt-2">
+          <p className="text-[#F15031] text-xs">
+            User ID: {userId || "не определен"}
+            {!WebApp.initDataUnsafe?.user?.id && " (режим разработки)"}
+          </p>
+        </div>
       </div>
 
       {/* Categories */}
@@ -121,13 +173,13 @@ export default function StartPage() {
       <div className="pt-6 pb-4">
         <button
           onClick={onSubmit}
-          disabled={selectedCategories.length === 0}
+          disabled={selectedCategories.length === 0 || !userId}
           className={`
-            w-full py-4 rounded-xl text-base font-semibold transition-all duration-200 cursor-pointer
+            w-full py-4 rounded-xl text-base font-semibold transition-all duration-200
             ${
-              selectedCategories.length > 0
-                ? "bg-[#F15031] text-white active:bg-[#D14021]"
-                : "bg-[#222222] text-[#888888]"
+              selectedCategories.length > 0 && userId
+                ? "bg-[#F15031] text-white active:bg-[#D14021] cursor-pointer"
+                : "bg-[#222222] text-[#888888] cursor-not-allowed"
             }
           `}
         >
@@ -139,6 +191,11 @@ export default function StartPage() {
           <p className="text-[#888888] text-sm">
             Выбрано: {selectedCategories.length} из {categories.length}
           </p>
+          {!userId && (
+            <p className="text-[#F15031] text-xs mt-1">
+              Ошибка: ID пользователя не определен
+            </p>
+          )}
         </div>
       </div>
     </div>

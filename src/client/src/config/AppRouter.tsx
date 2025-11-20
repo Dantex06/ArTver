@@ -13,37 +13,42 @@ export default function AppRouter() {
   const [userExists, setUserExists] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const tg = (window as any).Telegram.WebApp;
+useEffect(() => {
+  const init = async () => {
+    try {
+      const tg = (window as any).Telegram?.WebApp;
+      console.log("Telegram WebApp object:", tg);
+      
+      if (tg) {
         const tgId = tg.initDataUnsafe?.user?.id;
-
-        // if (!tgId) {
-        //   console.warn("Нет Telegram ID");
-        //   setUserExists(false);
-        //   setIsInitialized(true);
-        //   setLoading(false);
-        //   return;
-        // }
-
-        console.log("Telegram ID:", tgId);
-        const userData = await getUserByTgId(tgId);
-        console.log("User data:", userData);
-
-        setUserExists(userData.exists);
-        setIsInitialized(true);
-      } catch (e) {
-        console.error("Error checking user:", e);
-        setUserExists(false);
-        setIsInitialized(true);
-      } finally {
-        setLoading(false);
+        console.log("Telegram User ID from WebApp:", tgId);
+        
+        if (tgId) {
+          const user = await getUserByTgId(tgId);
+          console.log("User check result:", user);
+          setUserExists(user.exists);
+        } else {
+          console.warn("No Telegram User ID found");
+          // Для разработки используем тестовый ID
+          const testUser = await getUserByTgId(123456789);
+          setUserExists(testUser.exists);
+        }
+      } else {
+        console.warn("Telegram WebApp not available - running in browser");
+        // Режим браузера - используем тестовый ID
+        const testUser = await getUserByTgId(123456789);
+        setUserExists(testUser.exists);
       }
-    };
+    } catch (e) {
+      console.error("Error in AppRouter init:", e);
+      setUserExists(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    init();
-  }, []);
+  init();
+}, []);
 
   if (loading) return <Loading />;
 
